@@ -3,7 +3,7 @@ pipeline {
 
     stage('Check for File Changes') {
     steps {
-        sh 'python filecheck.py'
+        sh 'python file-check.py'
     }
 }
 
