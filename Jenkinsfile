@@ -1,33 +1,41 @@
 pipeline {
     agent any
 
-    stage('Check for File Changes') {
-    steps {
-        sh 'python file-check.py'
-    }
-}
+    stages {
+        stage('Check for File Changes') {
+            steps {
+                sh 'python file-check.py'
+            }
+            }
 
-    stage('Check PR Approval') {
-        script {
-            def pr = currentBuild.rawBuild.getCause(
-                com.cloudbees.jenkins.plugins.bitbucket.PullRequestCause
-            )
+        stage('Check PR Approval') {
+            steps {
+                script {
+                    def prNumber = 1  // Replace with the PR number you want to check
+                    def githubToken = 'YOUR_GITHUB_TOKEN'  // Replace with your GitHub Personal Access Token (PAT)
 
-            if (pr) {
-                def approver = pr.getUser()
-                def approvalStatus = pr.isApproved()
+                    // Make a request to the GitHub API to get PR details
+                    def apiUrl = "https://api.github.com/repos/owner/repo/pulls/$prNumber"
+                    def response = httpRequest(
+                        httpMode: 'GET',
+                        url: apiUrl,
+                        authentication: 'YOUR_CREDENTIALS_ID',  // Create a Jenkins credential with your GitHub PAT
+                        responseHandle: 'json'
+                    )
 
-                if (approvalStatus) {
-                    echo "PR approved by ${approver}"
-                } else {
-                    currentBuild.result = 'ABORTED'
-                    error "PR not approved. Aborting the build."
+                    def pr = response.data
+
+                    if (pr.review_requested == 0) {
+                        echo "PR is not approved"
+                        currentBuild.result = 'ABORTED'
+                        error('PR is not approved, halting the build')
+                    } else {
+                        echo "PR is approved, proceeding to the next stage"
+                    }
                 }
             }
         }
-    }
-    
-    stages {
+        
         stage('Build') {
             steps {
                 echo 'Building..'
@@ -43,6 +51,6 @@ pipeline {
                 echo 'Deploying....'
             }
         }
+        }
     }
-}
-k
+
